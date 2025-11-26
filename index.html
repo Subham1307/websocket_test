@@ -20,7 +20,7 @@
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
         }
         
@@ -93,16 +93,16 @@
             flex: 1;
         }
         
-        .connect-btn {
+        .submit-btn {
             background: #2ecc71;
             color: white;
         }
         
-        .connect-btn:hover {
+        .submit-btn:hover {
             background: #27ae60;
         }
         
-        .connect-btn:disabled {
+        .submit-btn:disabled {
             background: #95a5a6;
             cursor: not-allowed;
         }
@@ -255,11 +255,6 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="sessionId">Session ID</label>
-                    <input type="text" id="sessionId" value="h2W99L2zNhoGtnbaQThjJasqgfmWbkLVoyj0sf9b.ltecoreems142">
-                </div>
-                
-                <div class="form-group">
                     <label for="protocol">Protocol</label>
                     <select id="protocol">
                         <option value="wss">WSS (Secure)</option>
@@ -268,7 +263,7 @@
                 </div>
                 
                 <div class="btn-group">
-                    <button type="button" id="connectBtn" class="connect-btn">Connect to WebSocket</button>
+                    <button type="submit" id="submitBtn" class="submit-btn">Connect to WebSocket</button>
                     <button type="button" id="disconnectBtn" class="disconnect-btn" disabled>Disconnect</button>
                 </div>
             </form>
@@ -280,7 +275,7 @@
             <div id="messagesContainer" class="messages-container">
                 <div class="message system">
                     <div class="timestamp" id="initialTimestamp">Just now</div>
-                    <div class="message-content">Welcome to the EMS WebSocket Client. Connect to start receiving updates.</div>
+                    <div class="message-content">Welcome to the EMS WebSocket Client. Submit the form to connect and start receiving updates.</div>
                 </div>
             </div>
         </div>
@@ -288,7 +283,8 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const connectBtn = document.getElementById('connectBtn');
+            const connectionForm = document.getElementById('connectionForm');
+            const submitBtn = document.getElementById('submitBtn');
             const disconnectBtn = document.getElementById('disconnectBtn');
             const statusIndicator = document.getElementById('statusIndicator');
             const statusDot = document.getElementById('statusDot');
@@ -303,11 +299,12 @@
             // Set initial timestamp
             initialTimestamp.textContent = new Date().toLocaleTimeString();
             
-            // Connect to WebSocket
-            connectBtn.addEventListener('click', function() {
+            // Handle form submission
+            connectionForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                
                 const host = document.getElementById('host').value;
                 const module = document.getElementById('module').value;
-                const sessionId = document.getElementById('sessionId').value;
                 const protocol = document.getElementById('protocol').value;
                 
                 const wsUrl = `${protocol}://${host}/ems/websocket/request?module=${module}`;
@@ -321,9 +318,14 @@
                     // Set up event handlers
                     socket.onopen = function(event) {
                         updateStatus('Connected', 'connected');
-                        connectBtn.disabled = true;
+                        submitBtn.disabled = true;
                         disconnectBtn.disabled = false;
                         addSystemMessage('WebSocket connection established successfully.');
+                        
+                        // Disable form inputs while connected
+                        document.getElementById('host').disabled = true;
+                        document.getElementById('module').disabled = true;
+                        document.getElementById('protocol').disabled = true;
                     };
                     
                     socket.onmessage = function(event) {
@@ -334,13 +336,18 @@
                     
                     socket.onclose = function(event) {
                         updateStatus('Disconnected', 'disconnected');
-                        connectBtn.disabled = false;
+                        submitBtn.disabled = false;
                         disconnectBtn.disabled = true;
+                        
+                        // Re-enable form inputs
+                        document.getElementById('host').disabled = false;
+                        document.getElementById('module').disabled = false;
+                        document.getElementById('protocol').disabled = false;
                         
                         if (event.wasClean) {
                             addSystemMessage(`Connection closed cleanly, code=${event.code}, reason=${event.reason}`);
                         } else {
-                            addSystemMessage('Connection died');
+                            addSystemMessage('Connection terminated unexpectedly');
                         }
                     };
                     
