@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS WebSocket Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .connection-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            grid-column: 1 / -1;
+        }
+        
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+        }
+        
+        .connect-btn {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .connect-btn:hover {
+            background: #27ae60;
+        }
+        
+        .connect-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .disconnect-btn {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .disconnect-btn:hover {
+            background: #c0392b;
+        }
+        
+        .disconnect-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+        }
+        
+        .status-dot.connected {
+            background: #2ecc71;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-text {
+            font-weight: 600;
+        }
+        
+        .disconnected {
+            background: #ffeaa7;
+        }
+        
+        .connected {
+            background: #d5f5e3;
+        }
+        
+        .messages-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid #3498db;
+        }
+        
+        .message.system {
+            border-left-color: #f39c12;
+            background: #fff9e6;
+        }
+        
+        .message.received {
+            border-left-color: #2ecc71;
+        }
+        
+        .timestamp {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+        
+        .message-content {
+            word-break: break-word;
+        }
+        
+        .message-count {
+            margin-top: 15px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+            }
+            
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(46, 204, 113, 0);
+            }
+            
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(46, 204, 113, 0);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .connection-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-group {
+                grid-column: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EMS WebSocket Client</h1>
+            <p>Connect to the EMS server and receive real-time updates</p>
+        </header>
+        
+        <div class="card">
+            <div id="statusIndicator" class="status-indicator disconnected">
+                <div id="statusDot" class="status-dot"></div>
+                <div id="statusText" class="status-text">Disconnected</div>
+            </div>
+            
+            <form id="connectionForm" class="connection-form">
+                <div class="form-group">
+                    <label for="host">Host</label>
+                    <input type="text" id="host" value="172.25.1.142:9453" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="module">Module</label>
+                    <select id="module">
+                        <option value="common" selected>Common</option>
+                        <option value="alarms">Alarms</option>
+                        <option value="events">Events</option>
+                        <option value="metrics">Metrics</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="sessionId">Session ID</label>
+                    <input type="text" id="sessionId" value="h2W99L2zNhoGtnbaQThjJasqgfmWbkLVoyj0sf9b.ltecoreems142">
+                </div>
+                
+                <div class="form-group">
+                    <label for="protocol">Protocol</label>
+                    <select id="protocol">
+                        <option value="wss">WSS (Secure)</option>
+                        <option value="ws">WS (Unsecure)</option>
+                    </select>
+                </div>
+                
+                <div class="btn-group">
+                    <button type="button" id="connectBtn" class="connect-btn">Connect to WebSocket</button>
+                    <button type="button" id="disconnectBtn" class="disconnect-btn" disabled>Disconnect</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>Real-time Updates</h2>
+            <div class="message-count">Messages received: <span id="messageCount">0</span></div>
+            <div id="messagesContainer" class="messages-container">
+                <div class="message system">
+                    <div class="timestamp" id="initialTimestamp">Just now</div>
+                    <div class="message-content">Welcome to the EMS WebSocket Client. Connect to start receiving updates.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const messagesContainer = document.getElementById('messagesContainer');
+            const messageCount = document.getElementById('messageCount');
+            const initialTimestamp = document.getElementById('initialTimestamp');
+            
+            let socket = null;
+            let messageCounter = 0;
+            
+            // Set initial timestamp
+            initialTimestamp.textContent = new Date().toLocaleTimeString();
+            
+            // Connect to WebSocket
+            connectBtn.addEventListener('click', function() {
+                const host = document.getElementById('host').value;
+                const module = document.getElementById('module').value;
+                const sessionId = document.getElementById('sessionId').value;
+                const protocol = document.getElementById('protocol').value;
+                
+                const wsUrl = `${protocol}://${host}/ems/websocket/request?module=${module}`;
+                
+                try {
+                    updateStatus('Connecting...', 'connecting');
+                    
+                    // Create WebSocket connection
+                    socket = new WebSocket(wsUrl);
+                    
+                    // Set up event handlers
+                    socket.onopen = function(event) {
+                        updateStatus('Connected', 'connected');
+                        connectBtn.disabled = true;
+                        disconnectBtn.disabled = false;
+                        addSystemMessage('WebSocket connection established successfully.');
+                    };
+                    
+                    socket.onmessage = function(event) {
+                        messageCounter++;
+                        messageCount.textContent = messageCounter;
+                        addMessage(event.data);
+                    };
+                    
+                    socket.onclose = function(event) {
+                        updateStatus('Disconnected', 'disconnected');
+                        connectBtn.disabled = false;
+                        disconnectBtn.disabled = true;
+                        
+                        if (event.wasClean) {
+                            addSystemMessage(`Connection closed cleanly, code=${event.code}, reason=${event.reason}`);
+                        } else {
+                            addSystemMessage('Connection died');
+                        }
+                    };
+                    
+                    socket.onerror = function(error) {
+                        updateStatus('Connection Error', 'error');
+                        addSystemMessage(`WebSocket error: ${error}`);
+                        console.error('WebSocket error:', error);
+                    };
+                    
+                } catch (error) {
+                    updateStatus('Connection Failed', 'error');
+                    addSystemMessage(`Failed to connect: ${error.message}`);
+                    console.error('Connection error:', error);
+                }
+            });
+            
+            // Disconnect from WebSocket
+            disconnectBtn.addEventListener('click', function() {
+                if (socket) {
+                    socket.close();
+                    socket = null;
+                }
+            });
+            
+            // Update connection status
+            function updateStatus(text, status) {
+                statusText.textContent = text;
+                
+                // Remove all status classes
+                statusIndicator.classList.remove('disconnected', 'connected', 'connecting');
+                statusDot.classList.remove('connected');
+                
+                // Add appropriate class
+                if (status === 'connected') {
+                    statusIndicator.classList.add('connected');
+                    statusDot.classList.add('connected');
+                } else if (status === 'connecting') {
+                    statusIndicator.classList.add('connecting');
+                } else {
+                    statusIndicator.classList.add('disconnected');
+                }
+            }
+            
+            // Add a system message to the messages container
+            function addSystemMessage(content) {
+                addMessage(content, 'system');
+            }
+            
+            // Add a message to the messages container
+            function addMessage(content, type = 'received') {
+                const messageElement = document.createElement('div');
+                messageElement.className = `message ${type}`;
+                
+                const timestamp = new Date().toLocaleTimeString();
+                
+                messageElement.innerHTML = `
+                    <div class="timestamp">${timestamp}</div>
+                    <div class="message-content">${escapeHtml(content)}</div>
+                `;
+                
+                messagesContainer.appendChild(messageElement);
+                
+                // Auto-scroll to bottom
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            // Helper function to escape HTML
+            function escapeHtml(unsafe) {
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+        });
+    </script>
+</body>
+</html>
